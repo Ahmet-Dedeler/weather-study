@@ -361,7 +361,7 @@ export default function App() {
           <div className="top-bar glass">
             <div className="top-row">
               <div className="brand">
-                <span className="brand-dot" />
+                <img className="brand-mark" src={new URL('../assets/logo.svg', import.meta.url).href} alt="" width="22" height="22" />
                 <span>Weather Study</span>
               </div>
 

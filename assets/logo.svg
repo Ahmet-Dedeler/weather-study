@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
+  <title id="title">Weather Study lightning and sunset logo</title>
+  <defs>
+    <linearGradient id="sky" x2="0%" y2="100%">
+      <stop stop-color="#dd4c8d"/>
+      <stop offset=".55" stop-color="#fc826d"/>
+      <stop offset="1" stop-color="#ffc967"/>
+    </linearGradient>
+  </defs>
+  <rect x="3" y="3" width="122" height="122" rx="28" fill="#151629" stroke="#fa9c7d" stroke-width="4"/>
+  <circle cx="64" cy="60" r="46" fill="url(#sky)"/>
+  <path d="M15 82h98v5H15zm5 9h88v4H20zm9 9h70v4H29zm11 9h48v4H40z" fill="#151629"/>
+  <path d="M21 39h16l1 32 14-32h14l3 32 13-32h17L75 86H59l-4-27-12 27H27z" fill="#151629"/>
+  <path d="M92 61 74 88h14l-8 23 25-32H92l8-18z" fill="#fff3d8" stroke="#151629" stroke-width="3" stroke-linejoin="round"/>
+</svg>

@@ -3,9 +3,38 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Weather Study</title>
+    <title>Weather Study | WebGL2 Weather Engine &amp; Timecycle Visualizer</title>
+    <meta name="description" content="An open-source WebGL2 weather engine with volumetric clouds, ocean reflections, rain, branching lightning, and 4K captures. Inspired by RPF9 and timecycle research; the demo is entirely procedural." />
+    <meta name="theme-color" content="#151629" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Weather Study" />
+    <meta property="og:title" content="Weather Study | WebGL2 Weather Engine" />
+    <meta property="og:description" content="Fly a procedural coast, change the weather, and capture a lightning strike in 4K." />
+    <meta property="og:image" content="https://raw.githubusercontent.com/Ahmet-Dedeler/weather-study/main/assets/social-preview.jpg" />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="640" />
+    <meta property="og:image:alt" content="Weather Study wordmark beside a procedural ocean at sunset" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/svg+xml" href="/assets/logo.svg" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareSourceCode",
+        "name": "Weather Study",
+        "description": "Open-source WebGL2 weather engine and timecycle visualizer for a procedural coastal scene.",
+        "codeRepository": "https://github.com/Ahmet-Dedeler/weather-study",
+        "license": "https://opensource.org/license/mit",
+        "programmingLanguage": ["TypeScript", "GLSL"],
+        "keywords": "WebGL2, weather engine, volumetric clouds, ocean rendering, lightning, timecycle, RPF9"
+      }
+    </script>
   </head>
   <body class="bg-black text-white overflow-hidden select-none">
+    <noscript>
+      <h1>Weather Study: WebGL2 Weather Engine</h1>
+      <p>A procedural coastal weather simulator with volumetric clouds, ocean reflections, and branching lightning. Enable JavaScript and use a WebGL2 browser to run the demo.</p>
+      <a href="https://github.com/Ahmet-Dedeler/weather-study">Source code, screenshots, and timecycle research</a>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

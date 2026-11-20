@@ -76,12 +76,10 @@ body,
   flex-shrink: 0;
 }
 
-.brand-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #ff5ea8, #ffb347);
-  box-shadow: 0 0 10px rgba(255, 94, 168, 0.8);
+.brand-mark {
+  display: block;
+  flex: none;
+  filter: drop-shadow(0 0 6px rgba(250, 156, 125, 0.34));
 }
 
 .clock-group {

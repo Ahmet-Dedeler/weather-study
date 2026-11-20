@@ -1,9 +1,16 @@
 {
   "name": "weather-study",
+  "description": "Open-source WebGL2 weather engine and timecycle visualizer with volumetric clouds, ocean waves, and branching lightning.",
   "private": true,
   "version": "1.0.0",
   "type": "module",
   "license": "MIT",
+  "homepage": "https://github.com/Ahmet-Dedeler/weather-study#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Ahmet-Dedeler/weather-study.git"
+  },
+  "keywords": ["webgl2", "weather-engine", "weather-simulation", "volumetric-clouds", "ocean-rendering", "timecycle", "rpf9", "glsl"],
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
