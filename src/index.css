@@ -1,0 +1,460 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #05070c;
+  color: #f4f6fb;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.viewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.gl-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: none;
+}
+
+.gl-canvas:active {
+  cursor: grabbing;
+}
+
+.glass {
+  background: rgba(11, 15, 24, 0.68);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  box-shadow: 0 12px 38px rgba(0, 0, 0, 0.42);
+}
+
+.top-bar {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  border-radius: 16px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 20;
+}
+
+.top-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding-right: 10px;
+  border-right: 1px solid rgba(255, 255, 255, 0.14);
+  flex-shrink: 0;
+}
+
+.brand-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ff5ea8, #ffb347);
+  box-shadow: 0 0 10px rgba(255, 94, 168, 0.8);
+}
+
+.clock-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.clock-readout {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 14px;
+  min-width: 44px;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.time-slider {
+  width: 110px;
+  accent-color: #ff6eb4;
+  height: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.07);
+  color: #eef2ff;
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.btn.active {
+  background: linear-gradient(135deg, rgba(255, 94, 168, 0.35), rgba(255, 168, 76, 0.32));
+  border-color: rgba(255, 130, 185, 0.72);
+  color: #fff;
+}
+
+.btn-pill {
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+}
+
+.pills-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 1px;
+}
+
+.pills-row::-webkit-scrollbar {
+  display: none;
+}
+
+.picker-popover {
+  position: absolute;
+  top: 108px;
+  right: 14px;
+  width: 340px;
+  max-height: 460px;
+  border-radius: 14px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 30;
+}
+
+.search-input {
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  font-size: 12.5px;
+  outline: none;
+}
+
+.search-input:focus {
+  border-color: #ff6eb4;
+}
+
+.picker-list {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 390px;
+}
+
+.picker-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: #e4e9f5;
+  text-align: left;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.picker-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.picker-item.active {
+  background: rgba(255, 94, 168, 0.25);
+  color: #fff;
+}
+
+.picker-sub {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Weather inspector (Left) */
+.inspector {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  width: 276px;
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+  border-radius: 15px;
+  padding: 11px 13px;
+  z-index: 15;
+  font-size: 11px;
+}
+
+.insp-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 196, 128, 0.92);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.insp-section {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.insp-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0;
+  color: rgba(235, 240, 255, 0.78);
+}
+
+.insp-val {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #fff;
+  font-size: 11px;
+  text-align: right;
+}
+
+.mod-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.mod-tag {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9.5px;
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #c5d6ff;
+}
+
+/* Phone Weather App (Bottom-Right) */
+.phone-widget {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  width: 248px;
+  border-radius: 28px;
+  padding: 14px 16px 16px;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  background: linear-gradient(165deg, rgba(20, 32, 58, 0.82), rgba(10, 14, 26, 0.88));
+  backdrop-filter: blur(22px) saturate(170%);
+  -webkit-backdrop-filter: blur(22px) saturate(170%);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+  z-index: 15;
+}
+
+.phone-notch {
+  width: 64px;
+  height: 5px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.24);
+  margin: 0 auto 10px;
+}
+
+.phone-loc {
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.65);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.phone-temp-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 6px 0 4px;
+}
+
+.phone-temp {
+  font-size: 42px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  cursor: pointer;
+}
+
+.phone-desc {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.phone-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.phone-metric {
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  padding: 6px 8px;
+}
+
+.phone-metric-lbl {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.phone-metric-val {
+  font-size: 12.5px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.phone-forecast {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 3px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  text-align: center;
+}
+
+.fc-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+}
+
+.fc-hr {
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.fc-tmp {
+  font-weight: 600;
+}
+
+/* Bottom center camera / help pill */
+.bottom-dock {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  padding: 5px 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  z-index: 15;
+}
+
+.cinema-hint {
+  position: absolute;
+  bottom: 14px;
+  right: 16px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+  z-index: 25;
+}
+
+.loading-screen {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: radial-gradient(circle at 50% 35%, #162238, #06080e);
+}
+
+@media (max-width: 580px) {
+  .top-bar {
+    left: 8px;
+    right: 8px;
+    top: 8px;
+    padding: 8px 9px;
+  }
+
+  .clock-group {
+    flex-shrink: 1;
+  }
+
+  .bottom-dock {
+    max-width: calc(100% - 16px);
+    overflow-x: auto;
+    border-radius: 14px;
+  }
+
+  .bottom-dock > span {
+    display: none;
+  }
+
+  .inspector,
+  .phone-widget {
+    max-width: calc(100% - 16px);
+    max-height: 43vh;
+    overflow-y: auto;
+  }
+}
