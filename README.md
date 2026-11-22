@@ -6,6 +6,12 @@ An open-source weather engine and timecycle visualizer for the browser. Fly arou
 
 The sky uses raymarched volumetric clouds. The sea reflects them, shallow water refracts into the seabed, and a lightning strike lights up both the clouds and the water. The whole demo is generated here: no game files, asset downloads, or API keys.
 
+<p align="center">
+  <a href="https://discord.gg/reADpA6Cd"><img src="https://img.shields.io/badge/Join%20the%20Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Join the Discord" height="36" /></a>
+  <br />
+  <sub>Questions, previews, bug reports and format research. Come say hi.</sub>
+</p>
+
 [Screenshots](#screenshots) · [Run locally](#run-locally) · [RPF9 and timecycle research](#rpf9-and-timecycle-research) · [MIT license](LICENSE)
 
 ## Screenshots
