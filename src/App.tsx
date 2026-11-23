@@ -88,11 +88,7 @@ export default function App() {
     fovDeg: 58,
   });
   const keysRef = useRef<Set<string>>(new Set());
-  const dragRef = useRef<{ active: boolean; lastX: number; lastY: number }>({
-    active: false,
-    lastX: 0,
-    lastY: 0,
-  });
+  const dragRef = useRef<{ pointerId: number; lastX: number; lastY: number } | null>(null);
 
   const [ready, setReady] = useState(false);
   const [contextLost, setContextLost] = useState(false);
@@ -401,44 +397,41 @@ export default function App() {
         ref={canvasRef}
         className="gl-canvas"
         onPointerDown={(e) => {
-          if (!e.isPrimary || e.button !== 0) return;
+          if (!e.isPrimary || e.button !== 0 || dragRef.current) return;
           try {
             e.currentTarget.setPointerCapture(e.pointerId);
           } catch {
             // Pointer capture can throw on detached or synthetic pointer events.
           }
-          dragRef.current = { active: true, lastX: e.clientX, lastY: e.clientY };
+          dragRef.current = { pointerId: e.pointerId, lastX: e.clientX, lastY: e.clientY };
         }}
         onPointerMove={(e) => {
-          if (!e.isPrimary || !dragRef.current.active) return;
+          const drag = dragRef.current;
+          if (!drag || drag.pointerId !== e.pointerId) return;
           if (e.pointerType === 'mouse' && (e.buttons & 1) === 0) {
-            dragRef.current.active = false;
+            dragRef.current = null;
             return;
           }
-          const dx = e.clientX - dragRef.current.lastX;
-          const dy = e.clientY - dragRef.current.lastY;
-          dragRef.current.lastX = e.clientX;
-          dragRef.current.lastY = e.clientY;
+          const dx = e.clientX - drag.lastX;
+          const dy = e.clientY - drag.lastY;
+          drag.lastX = e.clientX;
+          drag.lastY = e.clientY;
           camRef.current.yaw += dx * 0.0045;
           camRef.current.pitch = Math.max(-1.1, Math.min(1.2, camRef.current.pitch - dy * 0.0045));
         }}
         onPointerUp={(e) => {
-          if (!e.isPrimary) return;
-          dragRef.current.active = false;
-          try {
-            if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-              e.currentTarget.releasePointerCapture(e.pointerId);
-            }
-          } catch {
-            // Ignore if capture is not active.
-          }
+          if (dragRef.current?.pointerId === e.pointerId) dragRef.current = null;
         }}
         onPointerCancel={(e) => {
-          if (!e.isPrimary) return;
-          dragRef.current.active = false;
+          if (dragRef.current?.pointerId === e.pointerId) dragRef.current = null;
         }}
-        onLostPointerCapture={() => {
-          dragRef.current.active = false;
+        onLostPointerCapture={(e) => {
+          if (dragRef.current?.pointerId === e.pointerId) dragRef.current = null;
+        }}
+        onPointerLeave={(e) => {
+          if (dragRef.current?.pointerId === e.pointerId && !e.currentTarget.hasPointerCapture(e.pointerId)) {
+            dragRef.current = null;
+          }
         }}
         onWheel={(e) => {
           camRef.current.fovDeg = Math.max(32, Math.min(82, camRef.current.fovDeg + e.deltaY * 0.03));
