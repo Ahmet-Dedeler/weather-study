@@ -16,6 +16,11 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
+function lerpAngleDeg(a: number, b: number, t: number): number {
+  const delta = ((((b - a) % 360) + 540) % 360) - 180;
+  return (((a + delta * t) % 360) + 360) % 360;
+}
+
 function lerp3(
   a: [number, number, number],
   b: [number, number, number],
@@ -131,7 +136,7 @@ export class WeatherEngine {
   timeOfDayHours = 16.5;
   timeSpeed = 12; // 12x real-time (1 game hour every 5 minutes)
   paused = false;
-  autoCycle = false;
+  private _autoCycle = false;
 
   // Weather state & smooth cross-fade
   currentWeatherName: string;
@@ -139,10 +144,24 @@ export class WeatherEngine {
   timecycleRegion: 'GLOBAL' | 'URBAN' = 'GLOBAL';
   transitionProgress = 1.0;
   transitionDurationSec = 6.0;
+  private transitionFromSnapshot: EvaluatedSnapshot | null = null;
   private autoCycleNames: string[];
   private autoCycleIndex = 0;
   private autoCycleTimer = 0;
   private autoCycleHoldSec = 26;
+
+  get autoCycle(): boolean {
+    return this._autoCycle;
+  }
+
+  set autoCycle(value: boolean) {
+    if (value && !this._autoCycle) {
+      this.autoCycleTimer = 0;
+      const idx = this.autoCycleNames.indexOf(this.targetWeatherName);
+      if (idx !== -1) this.autoCycleIndex = idx;
+    }
+    this._autoCycle = value;
+  }
 
   // Persistent physical state
   private wetness = 0.0;
@@ -199,24 +218,50 @@ export class WeatherEngine {
     return this.weatherMap.get(name.toLowerCase());
   }
 
+  private evaluateCurrentSnapshot(hour: number): EvaluatedSnapshot {
+    const snapB = this.evaluateWeatherAtTime(this.targetWeatherName, hour);
+    if (this.transitionProgress >= 1.0) return snapB;
+    const snapA =
+      this.transitionFromSnapshot ??
+      (this.currentWeatherName === this.targetWeatherName
+        ? snapB
+        : this.evaluateWeatherAtTime(this.currentWeatherName, hour));
+    return this.blendSnapshots(snapA, snapB, this.transitionProgress);
+  }
+
   setWeather(name: string, instant = false): void {
     const entry = this.weatherMap.get(name.toLowerCase());
     if (!entry) return;
+    if (!instant && entry.name === this.targetWeatherName) {
+      return;
+    }
+
+    const cycleIdx = this.autoCycleNames.indexOf(entry.name);
+    if (cycleIdx !== -1) {
+      this.autoCycleIndex = cycleIdx;
+    }
+    this.autoCycleTimer = 0;
+
     if (instant) {
       this.currentWeatherName = entry.name;
       this.targetWeatherName = entry.name;
+      this.transitionFromSnapshot = null;
       this.transitionProgress = 1.0;
+      // Snap wetness partially on instant switch so Rain/Hurricane looks wet immediately
+      const snap = this.evaluateWeatherAtTime(entry.name, this.timeOfDayHours);
+      this.wetness = snap.rainIntensity > 0.05 ? clamp(snap.rainIntensity * 0.9, 0.25, 1) : 0.02;
     } else {
-      if (this.transitionProgress >= 0.5) {
+      if (this.transitionProgress < 1.0) {
+        this.transitionFromSnapshot = this.evaluateCurrentSnapshot(this.timeOfDayHours);
+        if (this.transitionProgress >= 0.5) {
+          this.currentWeatherName = this.targetWeatherName;
+        }
+      } else {
+        this.transitionFromSnapshot = null;
         this.currentWeatherName = this.targetWeatherName;
       }
       this.targetWeatherName = entry.name;
       this.transitionProgress = 0.0;
-    }
-    // Snap wetness partially on instant switch so Rain/Hurricane looks wet immediately
-    if (instant) {
-      const snap = this.evaluateWeatherAtTime(entry.name, this.timeOfDayHours);
-      this.wetness = snap.rainIntensity > 0.05 ? clamp(snap.rainIntensity * 0.9, 0.25, 1) : 0.02;
     }
   }
 
@@ -720,7 +765,7 @@ export class WeatherEngine {
       sandstormIntensity: lerp(a.sandstormIntensity, b.sandstormIntensity, s),
       puddleRippleScale: lerp(a.puddleRippleScale, b.puddleRippleScale, s),
       windBaseSpeed: lerp(a.windBaseSpeed, b.windBaseSpeed, s),
-      windAngleDeg: lerp(a.windAngleDeg, b.windAngleDeg, s),
+      windAngleDeg: lerpAngleDeg(a.windAngleDeg, b.windAngleDeg, s),
       windGustChance: lerp(a.windGustChance, b.windGustChance, s),
       windGustSpeedMin: lerp(a.windGustSpeedMin, b.windGustSpeedMin, s),
       windGustSpeedMax: lerp(a.windGustSpeedMax, b.windGustSpeedMax, s),
@@ -788,6 +833,7 @@ export class WeatherEngine {
       );
       if (this.transitionProgress >= 1.0) {
         this.currentWeatherName = this.targetWeatherName;
+        this.transitionFromSnapshot = null;
       }
     }
 
@@ -802,11 +848,14 @@ export class WeatherEngine {
     }
 
     // 4. Evaluate current & target snapshots at exact time of day
-    const snapA = this.evaluateWeatherAtTime(this.currentWeatherName, this.timeOfDayHours);
-    const snapB =
-      this.currentWeatherName === this.targetWeatherName
-        ? snapA
-        : this.evaluateWeatherAtTime(this.targetWeatherName, this.timeOfDayHours);
+    const snapB = this.evaluateWeatherAtTime(this.targetWeatherName, this.timeOfDayHours);
+    const snapA =
+      this.transitionProgress >= 1.0
+        ? snapB
+        : this.transitionFromSnapshot ??
+          (this.currentWeatherName === this.targetWeatherName
+            ? snapB
+            : this.evaluateWeatherAtTime(this.currentWeatherName, this.timeOfDayHours));
     const snap =
       this.transitionProgress >= 1.0
         ? snapB

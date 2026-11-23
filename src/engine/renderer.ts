@@ -184,6 +184,12 @@ float fogTransmission(float dist, float camHeight, float objectHeight, float den
   return exp(-dist * (aerial + density * 0.0048 * local));
 }
 
+vec3 safeNormalizeUpper(vec3 v) {
+  vec3 u = vec3(v.x, max(v.y, 0.0), v.z);
+  float len2 = dot(u, u);
+  return len2 > 1e-8 ? u * inversesqrt(len2) : vec3(0.0, 1.0, 0.0);
+}
+
 // Analytic sky driven by the active timecycle.
 vec3 evalSky(
   vec3 rd,
@@ -208,7 +214,8 @@ vec3 evalSky(
   float y = clamp(rd.y, 0.0, 1.0);
   float sunY = sunDir.y;
   float dayT = smoothstep(-0.14, 0.22, sunY);
-  float twilightT = exp(-pow((sunY - 0.01) / 0.14, 2.0));
+  float twilightNorm = (sunY - 0.01) / 0.14;
+  float twilightT = exp(-(twilightNorm * twilightNorm));
 
   // Rayleigh scattering beta proportional to (550 / lambda)^4
   // Notice in Hurricane XML, wavelengths tighten to (571, 550, 531) -> desaturated slate sky!
@@ -616,14 +623,15 @@ void main() {
     float age = fract(uTime * 1.45 + h * 7.0);
     float r = length(f);
     float ring = sin((r - age * 0.45) * 48.0) * exp(-abs(r - age * 0.45) * 18.0) * (1.0 - age);
-    vec2 rGrad = normalize(f + 1e-4) * ring * uRainIntensity * puddleMask * 0.32;
+    vec2 rGrad = (f / max(r, 1e-4)) * ring * uRainIntensity * puddleMask * 0.32;
     N = normalize(N + vec3(rGrad.x, 0.0, rGrad.y));
   }
 
   // Direct Sun / Moon lighting
   vec3 L = (uSunDir.y > -0.02) ? uSunDir : uMoonDir;
   float ndl = max(dot(N, L), 0.0);
-  float twilightT = exp(-pow((uSunDir.y - 0.02) / 0.14, 2.0));
+  float twilightNorm = (uSunDir.y - 0.02) / 0.14;
+  float twilightT = exp(-(twilightNorm * twilightNorm));
   vec3 sunLight = mix(uSunCol * uLightDirCol, vec3(1.5, 0.62, 0.30), twilightT) *
     clamp(uLightDirMult, 0.5, 1.5) * mix(1.0, 0.25, uStormDarkness) * dayT;
   float projection = max(0.0, uCloudBase + 250.0 - vWorldPos.y) / max(0.14, L.y);
@@ -642,16 +650,20 @@ void main() {
   if (uIsPlant) color += albedo * directCol * max(0.0, dot(-N, L)) * 0.19;
 
   // Specular + wet puddle sky reflections
-  vec3 H = normalize(L + V);
+  vec3 halfVec = L + V;
+  float halfLen2 = dot(halfVec, halfVec);
+  vec3 H = halfLen2 > 1e-8 ? halfVec * inversesqrt(halfLen2) : N;
   float specPow = mix(12.0, 180.0, 1.0 - rough);
   float spec = pow(max(dot(N, H), 0.0), specPow) * (0.04 + 0.75 * (1.0 - rough));
   color += directCol * spec;
 
   if (uWetness > 0.05 && !uIsPlant) {
     vec3 R = reflect(-V, N);
-    float fresnel = pow(1.0 - max(dot(N, V), 0.0), 4.0);
+    float fresnelBase = max(0.0, 1.0 - max(dot(N, V), 0.0));
+    float fresnel2 = fresnelBase * fresnelBase;
+    float fresnel = fresnel2 * fresnel2;
     float outdoor = smoothstep(-0.08, 0.08, R.y);
-    R = normalize(vec3(R.x, max(0.0, R.y), R.z));
+    R = safeNormalizeUpper(R);
     vec3 reflSky = evalSky(
       R, uSunDir, uMoonDir, uWavelengthRGB, uSkyCol, uSunCol, uSunIntensity,
       uAerosol, uOzone, uMieG, uMoonCol, uMoonIntensity, uAirGlowCol, uAirGlowIntensity,
@@ -671,7 +683,7 @@ void main() {
   // Distance fog & height mist matching the sky horizon seamlessly
   vec3 viewDir = normalize(vWorldPos - uCamPos);
   vec3 fogCol = evalSky(
-    normalize(vec3(viewDir.x, max(viewDir.y, 0.0), viewDir.z)),
+    safeNormalizeUpper(viewDir),
     uSunDir, uMoonDir, uWavelengthRGB, uSkyCol, uSunCol, uSunIntensity,
     uAerosol, uOzone, uMieG, uMoonCol, uMoonIntensity, uAirGlowCol, uAirGlowIntensity,
     uStormDarkness, uSandstorm, uLightningFlash, uLightningCol
@@ -704,7 +716,7 @@ vec4 shoreAt(vec2 xz) {
   return textureLod(uShoreField, uv, 0.0);
 }
 
-float seabedAt(sampler2D heights, vec2 xz) {
+float seabedAt(highp sampler2D heights, vec2 xz) {
   vec2 uv = xz / (uCoastHalfSize * 2.0) + 0.5;
   float distanceToEdge = 0.5 - max(abs(uv.x - 0.5), abs(uv.y - 0.5));
   if (distanceToEdge <= 0.0) return -24.0;
@@ -739,7 +751,7 @@ uniform float uOceanWaveAmp;
 uniform float uShoreWaveAmp;
 uniform float uOceanFetch;
 uniform vec3 uOceanBandWeights;
-uniform sampler2D uHeightTex;
+uniform highp sampler2D uHeightTex;
 
 out vec3 vWorldPos;
 out vec3 vNormal;
@@ -865,7 +877,7 @@ uniform sampler2D uFoamTex;
 uniform sampler2D uNativeFoam;
 uniform sampler2D uBubbleFoam;
 uniform sampler2D uCaustic;
-uniform sampler2D uHeightTex;
+uniform highp sampler2D uHeightTex;
 uniform float uLightningFlash;
 uniform vec3 uLightningPos;
 uniform vec3 uLightningCol;
@@ -876,7 +888,9 @@ ${CLOUD_PROBE_GLSL}
 ${SURF_GLSL}
 
 float sunSpecular(vec3 N, vec3 V, vec3 L, float roughness) {
-  vec3 H = normalize(V + L);
+  vec3 halfVec = V + L;
+  float halfLen2 = dot(halfVec, halfVec);
+  vec3 H = halfLen2 > 1e-8 ? halfVec * inversesqrt(halfLen2) : N;
   float ndh = max(0.0, dot(N, H));
   float ndl = max(0.0, dot(N, L));
   float ndv = max(0.002, dot(N, V));
@@ -886,7 +900,9 @@ float sunSpecular(vec3 N, vec3 V, vec3 L, float roughness) {
   float distribution = a2 / (PI * denom * denom);
   float smithV = ndl * sqrt(a2 + (1.0 - a2) * ndv * ndv);
   float smithL = ndv * sqrt(a2 + (1.0 - a2) * ndl * ndl);
-  float f = 0.0204 + 0.9796 * pow(1.0 - vdh, 5.0);
+  float omv = max(0.0, 1.0 - vdh);
+  float omv2 = omv * omv;
+  float f = 0.0204 + 0.9796 * omv2 * omv2 * omv;
   return min(2.3, distribution * (0.5 / max(smithV + smithL, 0.001)) * f * ndl);
 }
 
@@ -910,7 +926,9 @@ void main() {
 
   // Fresnel reflection of live sky
   float ndv = max(dot(N, V), 0.001);
-  float fresnel = 0.0204 + 0.9796 * pow(1.0 - ndv, 5.0);
+  float omn = max(0.0, 1.0 - ndv);
+  float omn2 = omn * omn;
+  float fresnel = 0.0204 + 0.9796 * omn2 * omn2 * omn;
 
   vec3 R = reflect(-V, N);
   float horizonBlock = smoothstep(-0.13, 0.03, R.y);
@@ -950,7 +968,8 @@ void main() {
   vec3 L = (uSunDir.y > -0.02) ? uSunDir : uMoonDir;
   float roughness = clamp(0.12 + uWindSpeed * 0.004 + uRainIntensity * 0.053 + smoothstep(54.0, 440.0, dist) * 0.08, 0.12, 0.33);
   float glint = sunSpecular(N, V, L, roughness);
-  float twilightT = exp(-pow((uSunDir.y - 0.02) / 0.14, 2.0));
+  float twilightNorm = (uSunDir.y - 0.02) / 0.14;
+  float twilightT = exp(-(twilightNorm * twilightNorm));
   vec3 glintCol = (uSunDir.y > -0.02)
     ? mix(uSunCol * 3.8, vec3(3.6, 1.4, 0.55), twilightT) * (1.0 - uStormDarkness * 0.88) * dayT
     : uMoonCol * 0.9 * (1.0 - dayT) * smoothstep(-0.02, 0.12, uMoonDir.y) * (1.0 - uStormDarkness * 0.8);
@@ -963,7 +982,7 @@ void main() {
     vec3 lDir = normalize(vec3(strikeDelta.x, 90.0, strikeDelta.y));
     float lSpec = sunSpecular(N, V, lDir, 0.27);
     // A vertical channel gives a streak, not a uniform white flash over the sea.
-    vec2 rDir = normalize(R.xz + vec2(0.00001));
+    vec2 rDir = dot(R.xz, R.xz) > 1e-8 ? normalize(R.xz) : vec2(0.0, 1.0);
     float crossRay = abs(strikeDelta.x * rDir.y - strikeDelta.y * rDir.x);
     float travel = max(0.0, dot(strikeDelta, rDir));
     float streak = exp(-crossRay / (0.9 + travel * 0.019)) * smoothstep(0.02, 0.14, R.y) *
@@ -996,7 +1015,7 @@ void main() {
 
   // Seamless horizon fog blend
   vec3 viewDir = normalize(vWorldPos - uCamPos);
-  vec3 fogDir = normalize(vec3(viewDir.x, max(viewDir.y, 0.0), viewDir.z));
+  vec3 fogDir = safeNormalizeUpper(viewDir);
   vec3 fogCol = evalSky(
     fogDir,
     uSunDir, uMoonDir, uWavelengthRGB, uSkyCol, uSunCol, uSunIntensity,
@@ -1735,28 +1754,45 @@ export class WeatherRenderer {
     }
   }
 
+  isContextLost(): boolean {
+    return this.gl.isContextLost();
+  }
+
   capture4K(cam: CameraState, state: WeatherRuntimeState): Promise<Blob> {
-    const canvas = this.gl.canvas;
+    const gl = this.gl;
+    if (gl.isContextLost()) return Promise.reject(new Error('WebGL context is lost'));
+    const canvas = gl.canvas;
     if (!(canvas instanceof HTMLCanvasElement)) return Promise.reject(new Error('Capture needs a browser canvas'));
     const [width, height] = [canvas.width, canvas.height];
+    const maxRb = Number(gl.getParameter(gl.MAX_RENDERBUFFER_SIZE)) || 3840;
+    const maxVp = gl.getParameter(gl.MAX_VIEWPORT_DIMS) as Int32Array | number[] | null;
+    const maxW = Math.min(maxRb, maxVp?.[0] || maxRb);
+    const maxH = Math.min(maxRb, maxVp?.[1] || maxRb);
+    const scale = Math.min(1, maxW / 3840, maxH / 2160);
+    const targetW = Math.max(1, Math.floor(3840 * scale));
+    const targetH = Math.max(1, Math.floor(2160 * scale));
     return new Promise((resolve, reject) => {
       try {
-        canvas.width = 3840;
-        canvas.height = 2160;
+        canvas.width = targetW;
+        canvas.height = targetH;
         this.render(0, cam, state, true);
         canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('4K image could not be encoded')), 'image/png');
       } finally {
         canvas.width = width;
         canvas.height = height;
-        this.render(0, cam, state);
+        if (!gl.isContextLost()) {
+          this.render(0, cam, state);
+        }
       }
     });
   }
 
   render(dt: number, cam: CameraState, state: WeatherRuntimeState, still = false): void {
     const gl = this.gl;
-    const w = gl.canvas.width;
-    const h = gl.canvas.height;
+    if (gl.isContextLost()) return;
+    const w = gl.drawingBufferWidth;
+    const h = gl.drawingBufferHeight;
+    if (w <= 0 || h <= 0) return;
 
     this.elapsed += dt;
     const drift = state.windTotalSpeed * state.cloudWindScale * dt;
@@ -1973,6 +2009,7 @@ export class WeatherRenderer {
 
   dispose(): void {
     const gl = this.gl;
+    if (gl.isContextLost()) return;
     gl.deleteProgram(this.cloudProg);
     gl.deleteProgram(this.skyProg);
     gl.deleteProgram(this.terrainProg);

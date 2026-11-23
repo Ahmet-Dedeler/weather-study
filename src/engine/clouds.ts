@@ -35,7 +35,8 @@ uniform sampler2D uCloudProbe;
 const float TWO_PI = 6.28318530718;
 
 vec4 sampleCloudProbe(vec3 dir, float lod) {
-  vec2 uv = vec2(atan(dir.x, -dir.z) / TWO_PI + 0.5, asin(clamp(dir.y, -1.0, 1.0)) / PI + 0.5);
+  float az = dot(dir.xz, dir.xz) > 1e-8 ? atan(dir.x, -dir.z) : 0.0;
+  vec2 uv = vec2(az / TWO_PI + 0.5, asin(clamp(dir.y, -1.0, 1.0)) / PI + 0.5);
   return textureLod(uCloudProbe, uv, lod);
 }
 
@@ -148,7 +149,8 @@ void main() {
   if (end <= start) return;
 
   float day = smoothstep(-0.14, 0.15, uSunDir.y);
-  float lowSun = exp(-pow((uSunDir.y - 0.02) / 0.19, 2.0));
+  float lowSunT = (uSunDir.y - 0.02) / 0.19;
+  float lowSun = exp(-(lowSunT * lowSunT));
   vec3 lightDir = uSunDir.y > -0.04 ? normalize(vec3(uSunDir.x, max(0.06, uSunDir.y), uSunDir.z)) : uMoonDir;
   float mu = dot(ray, lightDir);
   float phase = 0.66 + min(0.95, 1.55 * hgPhase(mu, min(0.79, uCloudAnisotropy)));

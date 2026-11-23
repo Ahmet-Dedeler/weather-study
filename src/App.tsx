@@ -95,6 +95,8 @@ export default function App() {
   });
 
   const [ready, setReady] = useState(false);
+  const [contextLost, setContextLost] = useState(false);
+  const contextLostRef = useRef(false);
   const dataset = useMemo(createDemoWeather, []);
   const [error, setError] = useState<string | null>(null);
   const [runtime, setRuntime] = useState<WeatherRuntimeState | null>(null);
@@ -118,31 +120,92 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    let buildSeq = 0;
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      setError('Canvas not mounted');
+      return;
+    }
+
+    const coast = createDemoCoast();
+
+    const syncCanvasSize = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      const w = Math.max(1, Math.floor(window.innerWidth * dpr));
+      const h = Math.max(1, Math.floor(window.innerHeight * dpr));
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+      }
+    };
+
+    const buildRenderer = async () => {
+      const seq = ++buildSeq;
+      const visuals = await createDemoTextures();
       try {
-        const { heights, materials, meta } = createDemoCoast();
-        const canvas = canvasRef.current;
-        if (!canvas) throw new Error('Canvas not mounted');
-        const visuals = await createDemoTextures();
-        try {
-          if (cancelled) return;
-          rendererRef.current = new WeatherRenderer(canvas, heights, materials, meta, dataset.stsConfig, visuals);
-        } finally {
-          closeTextures(visuals);
-        }
+        if (cancelled || seq !== buildSeq || contextLostRef.current) return;
+        syncCanvasSize();
+        rendererRef.current?.dispose();
+        rendererRef.current = new WeatherRenderer(
+          canvas,
+          coast.heights,
+          coast.materials,
+          coast.meta,
+          dataset.stsConfig,
+          visuals,
+        );
+      } finally {
+        closeTextures(visuals);
+      }
+
+      if (!engineRef.current) {
         const engine = new WeatherEngine(dataset);
         const audio = new WeatherAudioEngine();
         engine.onThunderCallback = (dist, inten) => audio.triggerThunder(dist, inten);
         engineRef.current = engine;
         audioRef.current = audio;
-        setReady(true);
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
       }
-    })();
+      setError(null);
+      setContextLost(false);
+      setReady(true);
+    };
+
+    const onContextLost = (e: Event) => {
+      e.preventDefault();
+      contextLostRef.current = true;
+      buildSeq++;
+      rendererRef.current?.dispose();
+      rendererRef.current = null;
+      if (pendingStill.current) {
+        pendingStill.current = null;
+        setSavingStill(false);
+        setStillError('WebGL context lost');
+      }
+      setContextLost(true);
+    };
+
+    const onContextRestored = () => {
+      contextLostRef.current = false;
+      void buildRenderer().catch((e) => {
+        if (!cancelled) {
+          setContextLost(false);
+          setError(e instanceof Error ? e.message : String(e));
+        }
+      });
+    };
+
+    canvas.addEventListener('webglcontextlost', onContextLost);
+    canvas.addEventListener('webglcontextrestored', onContextRestored);
+
+    void buildRenderer().catch((e) => {
+      if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+    });
 
     return () => {
       cancelled = true;
+      buildSeq++;
+      canvas.removeEventListener('webglcontextlost', onContextLost);
+      canvas.removeEventListener('webglcontextrestored', onContextRestored);
       rendererRef.current?.dispose();
       audioRef.current?.dispose();
       rendererRef.current = null;
@@ -214,7 +277,7 @@ export default function App() {
 
       const engine = engineRef.current;
       const renderer = rendererRef.current;
-      if (engine && renderer) {
+      if (engine && renderer && !contextLostRef.current && !renderer.isContextLost()) {
         const st = engine.step(dt, camRef.current.pos, camRef.current.yaw);
         renderer.render(dt, camRef.current, st);
         audioRef.current?.update(st, elapsedTotal);
@@ -256,9 +319,18 @@ export default function App() {
   // Keyboard & mouse listeners
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || target?.isContentEditable) {
+        return;
+      }
       const k = e.key.toLowerCase();
+      if (k === ' ' && (tag === 'BUTTON' || tag === 'A' || Boolean(target?.closest('button, a')))) {
+        return;
+      }
       if (k === 'h') {
+        if (e.repeat) return;
         setHideUi((v) => !v);
         return;
       }
@@ -267,11 +339,18 @@ export default function App() {
     const onKeyUp = (e: KeyboardEvent) => {
       keysRef.current.delete(e.key.toLowerCase());
     };
+    const clearKeys = () => {
+      keysRef.current.clear();
+    };
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', clearKeys);
+    document.addEventListener('visibilitychange', clearKeys);
     return () => {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', clearKeys);
+      document.removeEventListener('visibilitychange', clearKeys);
     };
   }, []);
 
@@ -298,6 +377,12 @@ export default function App() {
     if (engineRef.current) engineRef.current.autoCycle = false;
   };
 
+  const setTimeOfDay = (hour: number) => {
+    if (!Number.isFinite(hour)) return;
+    if (engineRef.current) engineRef.current.timeOfDayHours = hour;
+    setRuntime((prev) => (prev ? { ...prev, timeOfDayHours: hour } : prev));
+  };
+
   const applyCameraPreset = (presetId: string) => {
     const p = CAMERA_PRESETS.find((c) => c.id === presetId);
     if (!p) return;
@@ -317,17 +402,40 @@ export default function App() {
         className="gl-canvas"
         onPointerDown={(e) => {
           if (!e.isPrimary || e.button !== 0) return;
-          e.currentTarget.setPointerCapture(e.pointerId);
+          try {
+            e.currentTarget.setPointerCapture(e.pointerId);
+          } catch {
+            // Pointer capture can throw on detached or synthetic pointer events.
+          }
           dragRef.current = { active: true, lastX: e.clientX, lastY: e.clientY };
         }}
         onPointerMove={(e) => {
           if (!e.isPrimary || !dragRef.current.active) return;
+          if (e.pointerType === 'mouse' && (e.buttons & 1) === 0) {
+            dragRef.current.active = false;
+            return;
+          }
           const dx = e.clientX - dragRef.current.lastX;
           const dy = e.clientY - dragRef.current.lastY;
           dragRef.current.lastX = e.clientX;
           dragRef.current.lastY = e.clientY;
           camRef.current.yaw += dx * 0.0045;
           camRef.current.pitch = Math.max(-1.1, Math.min(1.2, camRef.current.pitch - dy * 0.0045));
+        }}
+        onPointerUp={(e) => {
+          if (!e.isPrimary) return;
+          dragRef.current.active = false;
+          try {
+            if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+              e.currentTarget.releasePointerCapture(e.pointerId);
+            }
+          } catch {
+            // Ignore if capture is not active.
+          }
+        }}
+        onPointerCancel={(e) => {
+          if (!e.isPrimary) return;
+          dragRef.current.active = false;
         }}
         onLostPointerCapture={() => {
           dragRef.current.active = false;
@@ -341,6 +449,17 @@ export default function App() {
         <div className="loading-screen" style={{ position: 'absolute', inset: 0, zIndex: 50 }}>
           <h2 style={{ color: '#ff7096' }}>Weather Engine Error</h2>
           <pre style={{ maxWidth: 680, whiteSpace: 'pre-wrap', fontSize: 12, opacity: 0.85 }}>{error}</pre>
+        </div>
+      )}
+
+      {contextLost && !error && (
+        <div className="loading-screen" style={{ position: 'absolute', inset: 0, zIndex: 45 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: '0.08em' }}>
+            WebGL Context Lost
+          </div>
+          <div style={{ fontSize: 12, opacity: 0.65 }}>
+            Rendering paused while waiting for the graphics context to restore...
+          </div>
         </div>
       )}
 
@@ -385,8 +504,7 @@ export default function App() {
                   step={0.02}
                   value={runtime.timeOfDayHours}
                   onChange={(e) => {
-                    const h = parseFloat(e.target.value);
-                    if (engineRef.current) engineRef.current.timeOfDayHours = h;
+                    setTimeOfDay(parseFloat(e.target.value));
                   }}
                 />
                 {TIME_PRESETS.map((tp) => (
@@ -394,7 +512,7 @@ export default function App() {
                     key={tp.label}
                     className="btn btn-pill"
                     onClick={() => {
-                      if (engineRef.current) engineRef.current.timeOfDayHours = tp.hour;
+                      setTimeOfDay(tp.hour);
                     }}
                   >
                     {tp.label}
