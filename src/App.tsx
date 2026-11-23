@@ -52,9 +52,13 @@ function downloadStill(blob: Blob, lightning: boolean) {
 }
 
 function formatClock(hours: number): string {
-  const h = Math.floor(((hours % 24) + 24) % 24);
-  const m = Math.floor((hours - Math.floor(hours)) * 60);
-  return `${String(h).padStart(2, '0')}:${String(Math.abs(m) % 60).padStart(2, '0')}`;
+  const minutesPerDay = 24 * 60;
+  // Slider values can land just below a whole minute due to floating-point representation.
+  const totalMinutes = Math.floor(hours * 60 + 1e-9);
+  const minuteOfDay = ((totalMinutes % minutesPerDay) + minutesPerDay) % minutesPerDay;
+  const h = Math.floor(minuteOfDay / 60);
+  const m = minuteOfDay % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
 function WeatherGlyph({ icon, night, size = 24 }: { icon: string; night: boolean; size?: number }) {
@@ -394,6 +398,7 @@ export default function App() {
 
   const formatTemp = (c: number) =>
     useFahrenheit ? `${Math.round((c * 9) / 5 + 32)}°` : `${Math.round(c)}°`;
+  const clock = runtime ? formatClock(runtime.timeOfDayHours) : undefined;
 
   return (
     <div className="viewport">
@@ -495,9 +500,11 @@ export default function App() {
                 >
                   {paused ? <Play size={13} /> : <Pause size={13} />}
                 </button>
-                <span className="clock-readout">{formatClock(runtime.timeOfDayHours)}</span>
+                <span className="clock-readout">{clock}</span>
                 <input
                   type="range"
+                  aria-label="Time of day"
+                  aria-valuetext={clock}
                   className="time-slider"
                   min={0}
                   max={23.98}
@@ -765,7 +772,7 @@ export default function App() {
               <div className="phone-notch" />
               <div className="phone-loc">
                 <span>COASTAL STATION</span>
-                <span>{formatClock(runtime.timeOfDayHours)}</span>
+                <span>{clock}</span>
               </div>
 
               <div className="phone-temp-row">
