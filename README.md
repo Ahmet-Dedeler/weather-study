@@ -56,6 +56,8 @@ npm run verify:release
 
 The release check allows the demo's original artwork and screenshots. Keep archives, extracted assets, and private files out of the repo and build.
 
+The audit compares source files byte for byte with the Git index. If an older Windows checkout still contains CRLF line endings, run the audit from a fresh clone.
+
 ## Related projects
 
 - [Percy6Stars](https://github.com/Ahmet-Dedeler/Percy6Stars): RPF9/TTPF archive explorer for macOS and Windows
