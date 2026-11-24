@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';
 
 const source = [
-  /^(?:\.gitignore|LICENSE|README\.md|index\.html|package(?:-lock)?\.json|tsconfig\.json|vite\.config\.ts)$/,
+  /^(?:\.gitattributes|\.gitignore|LICENSE|README\.md|index\.html|package(?:-lock)?\.json|tsconfig\.json|vite\.config\.ts)$/,
   /^\.github\/workflows\/check\.yml$/,
   /^scripts\/verify-release\.mjs$/,
   /^assets\/(?:logo\.svg|(?:daylight|lightning|social-preview)\.jpg)$/,
