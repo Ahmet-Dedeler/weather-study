@@ -103,33 +103,38 @@ export async function createDemoTextures(): Promise<VisualAssets> {
   const wave = (x: number, y: number, a: number, b: number, phase = 0) => Math.sin(tau * (x * a + y * b + phase));
   let seed = 59321;
   const random = () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 2 ** 32;
-  const cloudMaps = new Map<string, ImageBitmap>();
-  for (const [i, kind] of ['fair', 'scattered', 'deck', 'storm'].entries()) {
-    for (const upper of [false, true]) {
-      cloudMaps.set(kind + (upper ? '_upper' : ''), await makeBitmap(256, (x, y) => {
-        const cells = wave(x, y, 4, 2, i * 0.12) * 0.34 + wave(x, y, 3, -5) * 0.29 +
-          wave(x, y, 7, 4, y) * 0.20 + wave(x, y, 11, -7) * 0.11 + wave(x, y, 16, 13) * 0.06;
-        const cover = Math.max(0, Math.min(1, (cells + 0.19 + i * 0.21) * 1.1));
-        return upper ? [cover * i * 40, cover * i * 21, 0, 255] : [cover * 106, cover * 92, cover * 133, 255];
-      }));
+  const assets: VisualAssets = {
+    cloudMaps: new Map(), blueNoise: null, waterNoise: null, foam: null, caustic: null,
+  };
+  try {
+    for (const [i, kind] of ['fair', 'scattered', 'deck', 'storm'].entries()) {
+      for (const upper of [false, true]) {
+        assets.cloudMaps.set(kind + (upper ? '_upper' : ''), await makeBitmap(256, (x, y) => {
+          const cells = wave(x, y, 4, 2, i * 0.12) * 0.34 + wave(x, y, 3, -5) * 0.29 +
+            wave(x, y, 7, 4, y) * 0.20 + wave(x, y, 11, -7) * 0.11 + wave(x, y, 16, 13) * 0.06;
+          const cover = Math.max(0, Math.min(1, (cells + 0.19 + i * 0.21) * 1.1));
+          return upper ? [cover * i * 40, cover * i * 21, 0, 255] : [cover * 106, cover * 92, cover * 133, 255];
+        }));
+      }
     }
-  }
-  return {
-    cloudMaps,
-    blueNoise: await makeBitmap(64, () => { const n = random() * 255; return [n, n, n, 255]; }),
-    waterNoise: await makeBitmap(128, (x, y) => [
+    assets.blueNoise = await makeBitmap(64, () => { const n = random() * 255; return [n, n, n, 255]; });
+    assets.waterNoise = await makeBitmap(128, (x, y) => [
       0, 141 + 35 * wave(x, y, 11, 5, 0.3 * wave(x, y, 2, -2)) + 21 * wave(x, y, 20, 17),
       0, 128 + 37 * wave(x, y, -8, 7, 0.3 * wave(x, y, 3, 2)) + 23 * wave(x, y, 19, -14),
-    ]),
-    foam: await makeBitmap(256, (x, y) => {
+    ]);
+    assets.foam = await makeBitmap(256, (x, y) => {
       const n = 65 + 112 * Math.pow(Math.abs(wave(x, y, 13, 9, 0.18 * wave(x, y, 8, -9))), 5) + random() * 30;
       return [n, n, n, 255];
-    }),
-    caustic: await makeBitmap(128, (x, y) => {
+    });
+    assets.caustic = await makeBitmap(128, (x, y) => {
       const n = 235 * Math.pow(1 - Math.abs(wave(x, y, 6, 5, 0.21 * wave(x, y, 4, -5))), 5);
       return [n, n, n, 255];
-    }),
-  };
+    });
+    return assets;
+  } catch (error) {
+    closeTextures(assets);
+    throw error;
+  }
 }
 
 export function closeTextures(assets: VisualAssets) {
