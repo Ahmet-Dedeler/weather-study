@@ -7,7 +7,7 @@ An open-source weather engine and timecycle visualizer for the browser. Fly arou
 The sky uses raymarched volumetric clouds. The sea reflects them, shallow water refracts into the seabed, and a lightning strike lights up both the clouds and the water. The whole demo is generated here: no game files, asset downloads, or API keys.
 
 <p align="center">
-  <a href="https://discord.gg/reADpA6Cd"><img src="https://img.shields.io/badge/Join%20the%20Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Join the Discord" height="36" /></a>
+  <a href="https://discord.gg/CjcDBg3nf"><img src="https://img.shields.io/badge/Join%20the%20Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Join the Discord" height="36" /></a>
   <br />
   <sub>Questions, previews, bug reports and format research. Come say hi.</sub>
 </p>
@@ -64,4 +64,4 @@ The release check allows the demo's original artwork and screenshots. Keep archi
 - [rage9-re](https://github.com/Ahmet-Dedeler/rage9-re): `script.rpf` and `anim.rpf` decoder with glTF export
 - [bink-player-mac](https://github.com/Ahmet-Dedeler/bink-player-mac): Bink 2 (`.bk2`) video player for macOS
 
-Questions, previews and format research: [join the Discord](https://discord.gg/reADpA6Cd).
+Questions, previews and format research: [join the Discord](https://discord.gg/CjcDBg3nf).
